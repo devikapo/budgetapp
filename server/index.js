@@ -20,6 +20,7 @@ const plaidClient = new PlaidApi(config);
 
 let ITEMS = [];
 
+// Account linking endpoints
 app.post("/api/link-token", async (req, res) => {
   try {
     const tokenResponse = await plaidClient.linkTokenCreate({
@@ -62,6 +63,7 @@ app.post("/api/exchange-token", async (req, res) => {
   }
 });
 
+// Getting accounts' items
 app.get("/api/items-with-accounts", async (req, res) => {
   try {
     const result = [];
@@ -94,6 +96,7 @@ app.delete("/api/items/:item_id", async (req, res) => {
   }
 });
 
+// Getting transactions
 app.get("/api/transactions", async (req, res) => {
   try {
     if (!ITEMS || !ITEMS.length) return res.json([]);
@@ -121,6 +124,95 @@ app.get("/api/transactions", async (req, res) => {
     }
     all.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
     res.json(all);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get balances for all accounts
+app.get("/api/balances", async (req, res) => {
+  try {
+    if (!ITEMS || !ITEMS.length) return res.json([]);
+    const all = [];
+    for (const it of ITEMS) {
+      const acc = await plaidClient.accountsGet({
+        access_token: it.access_token,
+      });
+      all.push(
+        ...acc.data.accounts.map((a) => ({
+          ...a,
+          item_id: it.item_id,
+          institution_id: it.institution_id,
+          institution_name: it.institution_name,
+        }))
+      );
+    }
+    res.json(all);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get balance history for a specific account (reconstructed from transactions)
+app.get("/api/balance-history/:account_id", async (req, res) => {
+  try {
+    const { account_id } = req.params;
+    if (!ITEMS || !ITEMS.length) return res.json([]);
+    // Gather all transactions for this account
+    let allTxns = [];
+    for (const it of ITEMS) {
+      const r = await plaidClient.transactionsGet({
+        access_token: it.access_token,
+        start_date: req.query.start || "2000-01-01",
+        end_date: req.query.end || new Date().toISOString().slice(0, 10),
+        options: { account_ids: [account_id], count: 500, offset: 0 },
+      });
+      allTxns.push(...r.data.transactions);
+    }
+    if (!allTxns.length) return res.json([]);
+    // Get current balance from Plaid
+    let currentBalance = null;
+    for (const it of ITEMS) {
+      const acc = await plaidClient.accountsGet({
+        access_token: it.access_token,
+      });
+      const found = acc.data.accounts.find((a) => a.account_id === account_id);
+      if (
+        found &&
+        found.balances &&
+        typeof found.balances.current === "number"
+      ) {
+        currentBalance = found.balances.current;
+        break;
+      }
+    }
+    if (currentBalance === null)
+      return res
+        .status(404)
+        .json({ error: "Account not found or no balance info" });
+    // Build daily balance history
+    allTxns.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)); // newest first
+    const history = [];
+    let running = currentBalance;
+    let lastDate = allTxns[0]?.date;
+    let i = 0;
+    while (lastDate && i < allTxns.length) {
+      // For each day, subtract all transactions for that day
+      const txnsForDay = allTxns.filter((t) => t.date === lastDate);
+      const totalForDay = txnsForDay.reduce(
+        (sum, t) => sum + Number(t.amount),
+        0
+      );
+      history.push({ date: lastDate, balance: running });
+      running -= totalForDay;
+      // Move to previous day
+      const prev = new Date(lastDate);
+      prev.setDate(prev.getDate() - 1);
+      lastDate = prev.toISOString().slice(0, 10);
+      i += txnsForDay.length;
+    }
+    // Optionally, fill in days with no transactions
+    res.json(history.reverse()); // oldest first
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
