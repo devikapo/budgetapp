@@ -9,6 +9,7 @@ interface DashboardModalProps {
     name: string;
     dateRange: { start?: Date; end?: Date };
     categories: string[];
+    transactionType: "spending" | "income";
   }) => void;
   initialValues?: any;
 }
