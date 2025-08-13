@@ -1,7 +1,7 @@
 {
-  "name": "budgetdash-server",
+  "name": "budgetapp-server",
   "version": "1.0.0",
-  "description": "Basic Node.js server for BudgetDash",
+  "description": "Basic Node.js server for BudgetApp",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"

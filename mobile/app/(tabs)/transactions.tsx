@@ -97,6 +97,8 @@ export default function Transactions() {
                     backgroundColor: "#dee2e6",
                     width: "100%",
                     color: "#212529",
+                    paddingVertical: 10,
+                    paddingHorizontal: 10,
                   }}
                 >
                   {formatDateHeader(date)}
@@ -111,12 +113,23 @@ export default function Transactions() {
                   width: "100%",
                   borderBottomWidth: idx === txns.length - 1 ? 0 : 1,
                   borderColor: "#f8f9fa",
+                  paddingVertical: 10,
+                  paddingHorizontal: 10,
+                  gap: 10,
                 }}
               >
-                <Text style={{ fontWeight: "600", color: "#212529" }}>
-                  {item.name}
-                </Text>
-                <Text>${Number(item.amount).toFixed(2)}</Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={{ fontWeight: "600", color: "#212529" }}>
+                    {item.name}
+                  </Text>
+                  <Text>${Number(item.amount).toFixed(2)}</Text>
+                </View>
                 {/* Show categories if available */}
                 {item.personal_finance_category?.primary ||
                 (item.category && item.category.length > 0) ? (
@@ -164,6 +177,7 @@ export default function Transactions() {
               style={{
                 flexDirection: "row",
                 alignItems: "center",
+                paddingLeft: 10,
               }}
             >
               <Text style={{ fontWeight: "600" }}>Category:</Text>
@@ -177,12 +191,14 @@ export default function Transactions() {
                       setSelectedCategory(item === "All" ? null : item)
                     }
                     style={{
-                      backgroundColor:
-                        selectedCategory === item ? "#4F8EF7" : "#f0f0f0",
-                      color: selectedCategory === item ? "#fff" : "#222",
+                      // backgroundColor:
+                      //   selectedCategory === item ? "#4F8EF7" : "#f0f0f0",
+                      color: selectedCategory === item ? "#1976D2" : "#212529",
                       borderRadius: 8,
                       fontSize: 14,
                       overflow: "hidden",
+                      paddingVertical: 10,
+                      paddingHorizontal: 10,
                     }}
                   >
                     {item === "All" ? "All" : formatCategory(item)}

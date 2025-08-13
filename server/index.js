@@ -63,6 +63,45 @@ app.post("/api/exchange-token", async (req, res) => {
   }
 });
 
+// Plaid OAuth callback endpoint
+app.get("/callback", async (req, res) => {
+  try {
+    console.log("Plaid OAuth callback hit at", new Date().toISOString());
+    console.log("Query params received:", req.query);
+    // Plaid will redirect with query params: state, oauth_state_id, etc.
+    const { state, oauth_state_id, public_token } = req.query;
+    // If Plaid provides a public_token, exchange it for an access_token
+    if (public_token) {
+      console.log("public_token received:", public_token);
+      const r = await plaidClient.itemPublicTokenExchange({ public_token });
+      const access_token = r.data.access_token;
+      const item_id = r.data.item_id;
+      console.log("Exchanged access_token:", access_token);
+      // Optionally, fetch institution info
+      const itemInfo = await plaidClient.itemGet({ access_token });
+      const institution_id = itemInfo.data.item.institution_id || null;
+      let institution_name = null;
+      if (institution_id) {
+        const inst = await plaidClient.institutionsGetById({
+          institution_id,
+          country_codes: ["US"],
+        });
+        institution_name = inst.data.institution.name || null;
+      }
+      console.log("Institution:", institution_id, institution_name);
+      ITEMS.push({ item_id, access_token, institution_id, institution_name });
+      // Redirect to mobile app deep link (if needed)
+      return res.redirect("com.devikapo.mobile://success");
+    }
+    // If no public_token, show a message
+    console.log("No public_token found in callback query params.");
+    res.send("Plaid OAuth callback received. No public_token found.");
+  } catch (e) {
+    console.error("Error in Plaid OAuth callback:", e);
+    res.status(500).send(`Error in Plaid OAuth callback: ${e.message}`);
+  }
+});
+
 // Getting accounts' items
 app.get("/api/items-with-accounts", async (req, res) => {
   try {
